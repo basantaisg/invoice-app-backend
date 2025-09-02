@@ -1,98 +1,278 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Invoice API (NestJS + TypeORM + Postgres)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A clean, production-minded REST API for invoices built with **NestJS**, **TypeORM**, and **PostgreSQL**. Includes Postman collection, environment, and one-click test flow.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Tech Stack
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+* **Node / NestJS** (App structure, DI, validation)
+* **TypeORM + Postgres** (entities, relations)
+* **class-validator / class-transformer** (DTO validation)
+* **dotenv** (environment config)
 
-## Project setup
+---
+
+## Quick Start
+
+### 0) Prerequisites
+
+* Node 18+ (LTS recommended)
+* Postgres 14+ (local or Docker)
+* npm or pnpm
+
+### 1) Clone & Install
 
 ```bash
-$ npm install
+# clone your repo
+git clone <your-repo-url> invoice-api
+cd invoice-api
+
+# install deps
+npm i
+# or: pnpm i
 ```
 
-## Compile and run the project
+### 2) Configure Environment
+
+Create `.env` at the **project root**:
+
+```env
+PORT=3000
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=invoice_api
+NODE_ENV=development
+```
+
+> For production, set `NODE_ENV=production` and **disable** TypeORM `synchronize` in the data source (use migrations).
+
+### 3) Start Postgres (Docker optional)
+
+**Option A: Local Postgres** — ensure credentials match your `.env`.
+
+**Option B: Docker Compose** — create `docker-compose.yml` and run:
+
+```yaml
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    container_name: invoice_api_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: invoice_api
+    ports:
+      - '5432:5432'
+    volumes:
+      - db_data:/var/lib/postgresql/data
+volumes:
+  db_data:
+```
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+docker compose up -d
 ```
 
-## Run tests
+### 4) Run the API
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run start:dev
+# API base: http://localhost:3000/api
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 5) Smoke Test (curl)
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Create a customer
+curl -s -X POST http://localhost:3000/api/customers -H 'Content-Type: application/json' \
+  -d '{"name":"KTM Traders","email":"billing@ktmtraders.com","city":"Kathmandu","country":"NP"}' | jq
+
+# Create a product
+curl -s -X POST http://localhost:3000/api/products -H 'Content-Type: application/json' \
+  -d '{"name":"Design Hour","unitPrice":"25.00"}' | jq
+
+# Create an invoice (replace IDs)
+curl -s -X POST http://localhost:3000/api/invoices -H 'Content-Type: application/json' \
+  -d '{
+    "customerId":"<CUSTOMER_ID>",
+    "items":[{"productId":"<PRODUCT_ID>","quantity":10,"unitPrice":"25.00","taxRatePct":"13.00","discountAmount":"0.00"}],
+    "notes":"Thanks!"
+  }' | jq
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+## Project Structure (key files)
 
-Check out a few resources that may come in handy when working with NestJS:
+```
+src/
+  app.module.ts
+  main.ts
+  common/
+    filters/http-exception.filter.ts
+    interceptors/logging.interceptor.ts
+  config/typeorm.config.ts
+  entities/
+    customer.entity.ts
+    product.entity.ts
+    invoice.entity.ts
+    invoice-item.entity.ts
+  customers/
+    customers.module.ts
+    customers.controller.ts
+    customers.service.ts
+    dto/create-customer.dto.ts
+  products/
+    products.module.ts
+    products.controller.ts
+    products.service.ts
+    dto/create-product.dto.ts
+  invoices/
+    invoices.module.ts
+    invoices.controller.ts
+    invoices.service.ts
+    dto/create-invoice.dto.ts
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+---
 
-## Support
+## API Overview
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Customers
 
-## Stay in touch
+* `POST /api/customers` — create
+* `GET  /api/customers` — list
+* `GET  /api/customers/:id` — detail
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Products
+
+* `POST /api/products` — create
+* `GET  /api/products` — list
+* `GET  /api/products/:id` — detail
+
+### Invoices
+
+* `POST   /api/invoices` — create (with line items)
+* `GET    /api/invoices` — list
+* `GET    /api/invoices/:id` — detail
+* `PATCH  /api/invoices/:id/pay` — mark as PAID
+* `PATCH  /api/invoices/:id/cancel` — mark as CANCELLED
+
+**Totals** are computed server-side: `subtotal`, `taxTotal`, `discountTotal`, `grandTotal`.
+
+> Money is stored as **DECIMAL** in DB and represented as **string** in JSON to avoid floating point drift.
+
+---
+
+## Postman — End‑to‑End Tests
+
+You can use the ready-made collection and environment to test the API manually or via CLI.
+
+### A) Import into Postman App
+
+1. **Download** the files:
+
+   * Collection: `NestJS_Invoice_API.postman_collection.json`
+   * Environment: `NestJS_Invoice_API_Local.postman_environment.json`
+2. In Postman, **Import** the collection file.
+3. Import the environment file, select it in the top-right environment dropdown.
+4. Ensure `baseUrl` is `http://localhost:3000/api` (default in the environment).
+
+**Collection contents**
+
+* **Customers**: Create, List, Get by ID
+* **Products**: Create, List, Get by ID
+* **Invoices**: Create, List, Get by ID, Pay, Cancel
+
+**Auto‑captured variables**
+
+* `customerId`, `productId`, `invoiceId`, `invoiceNumber` are captured via tests in the **Create** requests and saved as collection variables. This allows subsequent requests to reference `{{customerId}}`, `{{productId}}`, etc.
+
+**Run order (click these in sequence)**
+
+1. **Products → Create Product**
+2. **Customers → Create Customer**
+3. **Invoices → Create Invoice**
+4. **Invoices → Mark Invoice as PAID** (optional)
+5. **Invoices → Cancel Invoice** (optional)
+6. **Invoices → Get Invoice by ID** / **List Invoices**
+
+If a request fails, check the **Console** in Postman for details (e.g., DB connection, unique constraint, validation errors).
+
+### B) Run Collection via CLI (Newman)
+
+Install newman and run the collection headless—useful for CI.
+
+```bash
+npm i -g newman
+
+# If you committed the files under ./postman/
+newman run ./postman/NestJS_Invoice_API.postman_collection.json \
+  -e ./postman/NestJS_Invoice_API_Local.postman_environment.json \
+  --reporters cli
+
+# Or point at absolute paths
+newman run /absolute/path/NestJS_Invoice_API.postman_collection.json \
+  -e /absolute/path/NestJS_Invoice_API_Local.postman_environment.json
+```
+
+> The collection tests assert status code 200/201 and store IDs to variables for subsequent calls.
+
+---
+
+## Error Handling & Validation
+
+* Global `ValidationPipe` with `whitelist` + `forbidNonWhitelisted` ensures only DTO fields are accepted.
+* Custom `HttpExceptionFilter` returns consistent JSON errors.
+* Typical validation messages:
+
+  * Missing `items` on invoice create → `400` with message "Invoice requires at least one item".
+  * Unknown `customerId` or `productId` → `404`.
+
+---
+
+## Production Notes
+
+* **Migrations**: Turn off `synchronize` and use TypeORM migrations in CI.
+* **Invoice numbering**: Replace the naive counter with a Postgres sequence/transaction for concurrency.
+* **Auth**: Add JWT + roles if multi-user.
+* **Pagination & filtering**: Add query DTOs and DB indexes on `createdAt`, `status`, `customerId`.
+* **Observability**: Replace console logs with pino/winston; add tracing later.
+
+---
+
+## Development Scripts
+
+Common scripts you may add to `package.json`:
+
+```json
+{
+  "scripts": {
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "postman": "newman run ./postman/NestJS_Invoice_API.postman_collection.json -e ./postman/NestJS_Invoice_API_Local.postman_environment.json"
+  }
+}
+```
+
+---
+
+## Troubleshooting
+
+* **ECONNREFUSED / DB auth errors**: Ensure Postgres is running and `.env` matches.
+* **Unique constraint on customer email**: Use a different email during tests.
+* **Totals look wrong**: Ensure `unitPrice`, `taxRatePct`, `discountAmount` are strings (DECIMAL) in JSON.
+* **CORS**: Nest is created with `{ cors: true }` by default in `main.ts`. Adjust for your frontend origin if needed.
+
+---
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+MIT (or your choice)
